@@ -8,7 +8,8 @@ defmodule S3 do
   @type option ::
           {:access_key_id, String.t()}
           | {:secret_access_key, String.t()}
-          | {:base_url, URI.t()}
+          | {:url, URI.t()}
+          | {:host, String.t()}
           | {:region, String.t()}
           | {:method, :get | :post | :head | :patch | :delete | :options | :put | String.t()}
           | {:path, String.t()}
@@ -23,7 +24,8 @@ defmodule S3 do
   def build(options) do
     access_key_id = Keyword.fetch!(options, :access_key_id)
     secret_access_key = Keyword.fetch!(options, :secret_access_key)
-    base_url = Keyword.fetch!(options, :base_url)
+    url = Keyword.fetch!(options, :url)
+    host = Keyword.get(options, :host)
     path = Keyword.get(options, :path) || "/"
     query = Keyword.get(options, :query) || []
     region = Keyword.fetch!(options, :region)
@@ -46,7 +48,7 @@ defmodule S3 do
 
     headers =
       Enum.map(headers, fn {k, v} -> {String.downcase(k), v} end)
-      |> put_header("host", base_url.host)
+      |> put_header("host", host || url.host)
       |> put_header("x-amz-content-sha256", amz_content_sha256)
       |> put_header("x-amz-date", amz_date)
       |> Enum.sort_by(fn {k, _} -> k end)
@@ -54,12 +56,9 @@ defmodule S3 do
     # TODO method() to ensure only valid atoms are allowed
     method = String.upcase(to_string(method))
 
-    base_query = base_url.query || ""
-    base_path = base_url.path || "/"
-
-    query = base_query <> "&" <> URI.encode_query(query)
+    query = encode_query(url.query, query)
     path = path |> Path.split() |> Enum.map(&URI.encode/1) |> Path.join()
-    path = Path.join(base_path, path)
+    path = Path.join(url.path || "/", path)
 
     amz_short_date = String.slice(amz_date, 0, 8)
 
@@ -118,8 +117,15 @@ defmodule S3 do
         _ -> body
       end
 
-    {%URI{base_url | query: query, path: path}, headers, body}
+    {%URI{url | query: query, path: path}, headers, body}
   end
+
+  # TODO
+  @spec encode_query(String.t() | nil, Enumerable.t() | nil) :: iodata
+  defp encode_query(nil, nil), do: []
+  defp encode_query(nil, q), do: URI.encode_query(q)
+  defp encode_query(q, nil), do: q
+  defp encode_query(q1, q2), do: q1 <> "&" <> URI.encode_query(q2)
 
   @compile inline: [put_header: 3]
   defp put_header(headers, key, value), do: [{key, value} | List.keydelete(headers, key, 1)]
