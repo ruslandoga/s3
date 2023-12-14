@@ -24,6 +24,7 @@ defmodule S3.MinIOTest do
   end
 
   test "simple HeadObject" do
+    # TODO /testbuicket/eh? doesn't work (invalid signature)
     {uri, headers, body} = S3.build(config(path: "/testbucket/eh", method: :head))
 
     req = Finch.build(:head, uri, headers, body)

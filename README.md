@@ -5,7 +5,7 @@ Inspired by
 - https://github.com/aws-beam/aws-elixir (clients are structs, xmerl)
 - https://github.com/ex-aws/ex_aws_s3 (streaming uploads and downloads)
 
-Verified to work with Amazon S3, Wasabi, Backblaze B2, Cloudflare R2, DigitalOcean, and Scaleway.
+Verified to work with Amazon S3, MinIO, ~~Wasabi, Backblaze B2, Cloudflare R2, DigitalOcean, and Scaleway.~~
 
 Examples:
 
@@ -15,7 +15,7 @@ Examples:
 config = [
   access_key_id: "AKIAZZM67ULNV4CSXW4B",
   secret_access_key: "pHMekdDD1nE4tOJdZ92ziz8qy0mbhJLrfjHkuRy8",
-  base_url: URI.parse("https://vl3tueq.s3.ap-southeast-1.amazonaws.com"),
+  url: URI.parse("https://vl3tueq.s3.ap-southeast-1.amazonaws.com"),
   region: "ap-southeast-1"
 ]
 ```
@@ -95,11 +95,8 @@ request = Finch.build(:put, uri, headers, {:stream, body})
 %{} = S3.xml(body)
 ```
 
+- TODOs
 - [Signed Upload Form](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html)
-
-```elixir
-```
-
 - [Signed URL](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html)
 - Simple [DeleteObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html)
 - Simple [DeleteObjects](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html)
