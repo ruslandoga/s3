@@ -139,4 +139,59 @@ defmodule S3 do
   defp hex_sha256(value), do: hex(sha256(value))
   @compile inline: [hex_hmac_sha256: 2]
   defp hex_hmac_sha256(secret, value), do: hex(hmac_sha256(secret, value))
+
+  def xml(xml) when is_binary(xml) do
+    # TODO
+    # See: https://elixirforum.com/t/utf-8-issue-with-erlang-xmerl-scan-function/1668/9
+    # xml = :erlang.binary_to_list(xml)
+
+    {:ok, xml, ""} =
+      :xmerl_sax_parser.stream(xml,
+        event_fun: &__MODULE__.xml_event_fun/3,
+        external_entities: :none
+      )
+
+    xml
+  end
+
+  @doc false
+  # TODO
+  def xml_event_fun(:startDocument, _location, :undefined), do: []
+
+  def xml_event_fun({:startElement, _, name, _, _}, _location, state) do
+    {[], name, state}
+  end
+
+  def xml_event_fun({:characters, text}, _location, state) do
+    {[], name, outer_acc} = state
+    {:unicode.characters_to_binary(text), name, outer_acc}
+  end
+
+  def xml_event_fun({:endElement, _, name, _}, _location, state) do
+    {inner_acc, ^name, outer_acc} = state
+
+    name = :unicode.characters_to_binary(name)
+
+    inner_acc =
+      case inner_acc do
+        _ when is_list(inner_acc) -> :lists.reverse(inner_acc)
+        _ -> inner_acc
+      end
+
+    case outer_acc do
+      {outer_inner_acc, outer_name, outer_acc} ->
+        {
+          [{name, inner_acc} | outer_inner_acc],
+          outer_name,
+          outer_acc
+        }
+
+      _ ->
+        [{name, inner_acc} | outer_acc]
+    end
+  end
+
+  def xml_event_fun(_event, _location, state) do
+    state
+  end
 end
