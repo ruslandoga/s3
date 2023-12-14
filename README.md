@@ -97,7 +97,7 @@ stream = <<0::10000-bytes>> |> Stream.repeatedly() |> Stream.take(100)
 req = Finch.build(:put, uri, headers, {:stream, stream})
 200 = Finch.request!(req, MinIO.Finch).status
 ```
-```
+```elixir
 # ListObjectsV2
 # https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
 {uri, headers, body} = S3.build(config.(method: :get, query: %{"list-type" => 2}))
