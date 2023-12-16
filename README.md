@@ -27,7 +27,7 @@ config = fn options ->
     [
       access_key_id: "minioadmin",
       secret_access_key: "minioadmin",
-      url: URI.parse("http://localhost:9000"),
+      base_url: "http://localhost:9000",
       region: "us-east-1"
     ],
     options
