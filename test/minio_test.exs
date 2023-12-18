@@ -149,11 +149,11 @@ defmodule MinIOTest do
              {
                "ListBucketResult",
                [
-                 {"Name", "testbucket"},
+                 {"Name", ["testbucket"]},
                  {"Prefix", []},
-                 {"KeyCount", key_count},
-                 {"MaxKeys", "1000"},
-                 {"IsTruncated", "false"} | contents
+                 {"KeyCount", [key_count]},
+                 {"MaxKeys", ["1000"]},
+                 {"IsTruncated", ["false"]} | contents
                ]
              }
            ] = S3.xml(response.body)

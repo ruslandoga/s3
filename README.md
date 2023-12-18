@@ -94,36 +94,28 @@ iex> {uri, headers, body} = S3.build(
   config.(method: :get, query: %{"list-type" => 2})
 )
 iex> req = Finch.build(:get, uri, headers, body)
-iex> S3.xml(Finch.request!(req, MinIO.Finch).body)
+iex> {:ok, xml} = S3.xml(Finch.request!(req, MinIO.Finch).body)
+iex> xml
 [
   {
     "ListBucketResult",
     [
-      {"Name", "testbucket"},
+      {"Name", ["testbucket"]},
       {"Prefix", []},
-      {"KeyCount", "2"},
-      {"MaxKeys", "1000"},
-      {"IsTruncated", "false"},
+      {"KeyCount", ["2"]},
+      {"MaxKeys", ["1000"]},
+      {"IsTruncated", ["false"]},
       {
         "Contents",
         [
-          {"Key", "my-bytes"},
-          {"LastModified", "2023-12-14T08:54:40.085Z"},
-          {"ETag", "\"879f4bba57ed37c9ec5e5aedf9864698\""},
-          {"Size", "1000000"},
-          {"StorageClass", "STANDARD"}
+          {"Key", ["my-bytes"]},
+          {"LastModified", ["2023-12-14T08:54:40.085Z"]},
+          {"ETag", ["\"879f4bba57ed37c9ec5e5aedf9864698\""]},
+          {"Size", ["1000000"]},
+          {"StorageClass", ["STANDARD"]}
         ]
       },
-      {
-        "Contents",
-        [
-          {"Key", "my-bytestream"},
-          {"LastModified", "2023-12-14T08:54:40.042Z"},
-          {"ETag", "\"879f4bba57ed37c9ec5e5aedf9864698\""},
-          {"Size", "1000000"},
-          {"StorageClass", "STANDARD"}
-        ]
-      }
+      # etc.
     ]
   }
 ]
