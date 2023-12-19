@@ -26,7 +26,8 @@ defmodule S3.MixProject do
       {:benchee, "~> 1.2", only: :bench},
       {:sweet_xml, "~> 0.7.4", only: :bench},
       {:saxy, "~> 1.5", only: :bench},
-      {:meeseeks, "~> 0.17.0", only: :bench}
+      {:meeseeks, "~> 0.17.0", only: :bench},
+      {:dialyxir, "~> 1.4", only: [:dev, :test]}
     ]
   end
 end
