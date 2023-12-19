@@ -122,20 +122,54 @@ req = Finch.build(:get, uri, headers, body)
      {"Prefix", []},
      {"KeyCount", ["2"]},
      {"MaxKeys", ["1000"]},
-     {"IsTruncated", ["false"]},
-     {
-       "Contents",
-       [
-         {"Key", ["my-bytes"]},
-         {"LastModified", ["2023-12-14T08:54:40.085Z"]},
-         {"ETag", ["\"879f4bba57ed37c9ec5e5aedf9864698\""]},
-         {"Size", ["1000000"]},
-         {"StorageClass", ["STANDARD"]}
+     {"IsTruncated", ["false"]}
+     | contents = [
+         {
+           "Contents",
+           [
+             {"Key", ["my-bytes"]},
+             {"LastModified", ["2023-12-14T08:54:40.085Z"]},
+             {"ETag", ["\"879f4bba57ed37c9ec5e5aedf9864698\""]},
+             {"Size", ["1000000"]},
+             {"StorageClass", ["STANDARD"]}
+           ]
+         }
+         | _etc
        ]
-     }
-     | _etc
    ]
- }} = S3.xml(Finch.request!(req, MinIO.Finch).body)
+ }} =
+  S3.xml(Finch.request!(req, MinIO.Finch).body)
+
+# DeleteObjects
+# https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
+
+objects =
+  Enum.map(contents, fn {"Contents", contents} ->
+    {"Object", [List.keyfind!(contents, "Key", 0)]}
+  end)
+
+xml = S3.xml({"Delete", objects})
+content_md5 = Base.encode64(:crypto.hash(:md5, xml))
+
+{uri, headers, body} =
+  S3.build(
+    config(
+      method: :post,
+      path: "/testbucket",
+      query: %{"delete" => ""},
+      headers: [{"content-md5", content_md5}],
+      body: xml
+    )
+  )
+
+
+{:ok,
+ {"DeleteResult",
+  [
+    {"Deleted", [{"Key", ["my-bytes"]}]}
+  ]
+  | _etc}} =
+  S3.xml(Finch.request!(req, MinIO.Finch).body)
 ```
 
 ```elixir
@@ -171,9 +205,4 @@ X-Amz-Expires=86400&\
 X-Amz-SignedHeaders=host&\
 X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404\
 """ = URI.to_string(url)
-```
-
-```elixir
-# DeleteObjects
-# https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
 ```

@@ -4,7 +4,7 @@ defmodule MinIOTest do
   @moduletag :minio
 
   # uses https://min.io
-  # docker run -d --rm -p 9000:9000 -p 9001:9001 minio/minio server /data --console-address ":9001"
+  # docker run -d --rm -p 9000:9000 -p 9001:9001 --name minio minio/minio server /data --console-address ":9001"
   # docker exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
   # docker exec minio mc mb local/testbucket
 
@@ -173,7 +173,7 @@ defmodule MinIOTest do
     assert IO.iodata_length(data_packets) == 1_000_000
   end
 
-  test "ListObjectsV2" do
+  test "ListObjectsV2 -> DeleteObjects" do
     {uri, headers, body} =
       S3.build(
         config(
@@ -200,6 +200,48 @@ defmodule MinIOTest do
               ]
             }} = S3.xml(response.body)
 
-    assert String.to_integer(key_count) == length(contents)
+    key_count = String.to_integer(key_count)
+    assert key_count == length(contents)
+
+    if key_count > 0 do
+      objects =
+        Enum.map(contents, fn {"Contents", contents} ->
+          {"Object", [List.keyfind!(contents, "Key", 0)]}
+        end)
+
+      xml = S3.xml({"Delete", objects})
+      content_md5 = Base.encode64(:crypto.hash(:md5, xml))
+
+      {uri, headers, body} =
+        S3.build(
+          config(
+            method: :post,
+            path: "/testbucket",
+            query: %{"delete" => ""},
+            headers: [{"content-md5", content_md5}],
+            body: xml
+          )
+        )
+
+      response = request!(:post, uri, headers, body)
+
+      assert response.status == 200
+      assert response.headers["content-type"] == "application/xml"
+      assert {:ok, {"DeleteResult", deleted}} = S3.xml(response.body)
+
+      deleted_keys =
+        Enum.map(deleted, fn deleted ->
+          {"Deleted", [{"Key", [key]}]} = deleted
+          key
+        end)
+
+      contents_keys =
+        Enum.map(contents, fn {"Contents", contents} ->
+          {"Key", [key]} = List.keyfind!(contents, "Key", 0)
+          key
+        end)
+
+      assert deleted_keys == contents_keys
+    end
   end
 end

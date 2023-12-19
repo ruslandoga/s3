@@ -69,9 +69,9 @@ defmodule S3Test do
     </ListBucketResult>\
     """
 
-    assert {:ok, xml} = S3.xml(xml)
+    assert {:ok, decoded} = S3.xml(xml)
 
-    assert xml ==
+    assert decoded ==
              {"ListBucketResult",
               [
                 {"Name", ["testbucket"]},
@@ -96,6 +96,34 @@ defmodule S3Test do
                    {"StorageClass", ["STANDARD"]}
                  ]}
               ]}
+
+    encoded = IO.iodata_to_binary(S3.xml(decoded))
+
+    assert encoded == """
+           <ListBucketResult>\
+           <Name>testbucket</Name>\
+           <Prefix></Prefix>\
+           <KeyCount>2</KeyCount>\
+           <MaxKeys>1000</MaxKeys>\
+           <IsTruncated>false</IsTruncated>\
+           <Contents>\
+           <Key>my-bytes-1702544080-292</Key>\
+           <LastModified>2023-12-14T08:54:40.085Z</LastModified>\
+           <ETag>\"879f4bba57ed37c9ec5e5aedf9864698\"</ETag>\
+           <Size>1000000</Size>\
+           <StorageClass>STANDARD</StorageClass>\
+           </Contents>\
+           <Contents>\
+           <Key>my-bytes-1702544080-66</Key>\
+           <LastModified>2023-12-14T08:54:40.042Z</LastModified>\
+           <ETag>\"879f4bba57ed37c9ec5e5aedf9864698\"</ETag>\
+           <Size>1000000</Size>\
+           <StorageClass>STANDARD</StorageClass>\
+           </Contents>\
+           </ListBucketResult>\
+           """
+
+    assert {:ok, decoded} == S3.xml(encoded)
 
     # TODO
     # assert xml ==

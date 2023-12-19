@@ -329,9 +329,9 @@ defmodule S3 do
   @compile inline: [hex_hmac_sha256: 2]
   defp hex_hmac_sha256(secret, value), do: hex(hmac_sha256(secret, value))
 
-  @type xml_node :: {String.t(), xml_node()}
+  @type xml_element :: {String.t(), [xml_element() | String.t()]}
 
-  @spec xml(binary) :: {:ok, [xml_node]} | {:error, any}
+  @spec xml(binary) :: {:ok, xml_element} | {:error, any}
   def xml(xml) when is_binary(xml) do
     # TODO
     # See: https://elixirforum.com/t/utf-8-issue-with-erlang-xmerl-scan-function/1668/9
@@ -348,6 +348,33 @@ defmodule S3 do
       # TODO incomplete or extra -> error
       {:error, _reason} = e -> e
     end
+  end
+
+  # TODO
+  @spec xml(xml_element) :: iodata
+  def xml({name, content}) do
+    [?<, name, ?>, xml_continue(content), "</", name, ?>]
+  end
+
+  defp xml_continue({name, content}) do
+    [?<, name, ?>, xml_continue(content), "</", name, ?>]
+  end
+
+  defp xml_continue([{name, content} | rest]) do
+    [?<, name, ?>, xml_continue(content), "</", name, ?> | xml_continue(rest)]
+  end
+
+  defp xml_continue([binary | rest]) when is_binary(binary) do
+    [xml_escape(binary) | xml_continue(rest)]
+  end
+
+  defp xml_continue([] = empty), do: empty
+
+  # TODO speed-up
+  defp xml_escape(binary) do
+    binary
+    |> String.replace("<", "&lt;")
+    |> String.replace("&", "&amp;")
   end
 
   # based on https://github.com/qcam/saxy/blob/master/lib/saxy/simple_form/handler.ex
