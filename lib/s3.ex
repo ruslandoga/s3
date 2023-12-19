@@ -15,7 +15,7 @@ defmodule S3 do
           | {:path, String.t()}
           | {:query, Enumerable.t()}
           | {:headers, headers}
-          | {:body, iodata | {:stream, Enumerable.t()}}
+          | {:body, iodata | {:stream, Enumerable.t()} | :url}
           | {:utc_now, DateTime.t()}
 
   @type options :: [option]
@@ -34,7 +34,7 @@ defmodule S3 do
 
     host = Keyword.get(options, :host)
     path = Keyword.get(options, :path) || "/"
-    query = Keyword.get(options, :query) || []
+    query = Keyword.get(options, :query) || %{}
     region = Keyword.fetch!(options, :region)
     method = Keyword.fetch!(options, :method)
     headers = Keyword.get(options, :headers) || []
@@ -63,7 +63,12 @@ defmodule S3 do
     # TODO method() to ensure only valid atoms are allowed
     method = String.upcase(to_string(method))
 
-    query = encode_query(url[:query], query)
+    url_query = if q = url[:query], do: URI.decode_query(q), else: %{}
+
+    query =
+      Map.merge(url_query, query)
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> URI.encode_query()
 
     path =
       path
@@ -151,12 +156,132 @@ defmodule S3 do
     {struct!(URI, url), headers, body}
   end
 
-  # TODO
-  @spec encode_query(String.t() | nil, Enumerable.t() | nil) :: iodata
-  defp encode_query(nil, nil), do: []
-  defp encode_query(nil, q), do: URI.encode_query(q)
-  defp encode_query(q, nil), do: q
-  defp encode_query(q1, q2), do: q1 <> "&" <> URI.encode_query(q2)
+  @spec signature(options) :: String.t()
+  def signature(options) do
+    secret_access_key = Keyword.fetch!(options, :secret_access_key)
+    body = Keyword.fetch!(options, :body)
+    region = Keyword.fetch!(options, :region)
+    service = Keyword.get(options, :service, "s3")
+    utc_now = Keyword.get(options, :utc_now) || DateTime.utc_now()
+    amz_short_date = Calendar.strftime(utc_now, "%Y%m%d")
+
+    signing_key =
+      ["AWS4" | secret_access_key]
+      |> hmac_sha256(amz_short_date)
+      |> hmac_sha256(region)
+      |> hmac_sha256(service)
+      |> hmac_sha256("aws4_request")
+
+    hex_hmac_sha256(signing_key, body)
+  end
+
+  @spec signed_url(options) :: URI.t()
+  def signed_url(options) do
+    access_key_id = Keyword.fetch!(options, :access_key_id)
+    secret_access_key = Keyword.fetch!(options, :secret_access_key)
+
+    url =
+      case Keyword.fetch!(options, :url) do
+        url when is_binary(url) -> %{} = :uri_string.parse(url)
+        %URI{} = uri -> Map.from_struct(uri)
+        %{} = parsed -> parsed
+      end
+
+    host = Keyword.get(options, :host)
+    path = Keyword.get(options, :path) || "/"
+    query = Keyword.get(options, :query) || %{}
+    region = Keyword.fetch!(options, :region)
+    method = Keyword.fetch!(options, :method)
+    headers = Keyword.get(options, :headers) || []
+
+    # hidden options
+    service = Keyword.get(options, :service, "s3")
+    utc_now = Keyword.get(options, :utc_now) || DateTime.utc_now()
+
+    # TODO method() to ensure only valid atoms are allowed
+    method = String.upcase(to_string(method))
+
+    amz_date = Calendar.strftime(utc_now, "%Y%m%dT%H%M%SZ")
+    amz_short_date = String.slice(amz_date, 0, 8)
+    scope = IO.iodata_to_binary([amz_short_date, ?/, region, ?/, service, ?/, "aws4_request"])
+
+    headers =
+      Enum.map(headers, fn {k, v} -> {String.downcase(k), v} end)
+      |> put_header("host", host || url.host)
+      |> Enum.sort_by(fn {k, _} -> k end)
+
+    path =
+      path
+      |> String.split("/", trim: true)
+      |> Enum.map(&:uri_string.quote/1)
+      |> Enum.join("/")
+
+    path =
+      case Path.join(url[:path] || "/", path) do
+        "/" <> _ = path -> path
+        _ -> "/" <> path
+      end
+
+    signed_headers =
+      headers
+      |> Enum.map(fn {k, _} -> k end)
+      |> Enum.intersperse(?;)
+      |> IO.iodata_to_binary()
+
+    url_query = if q = url[:query], do: URI.decode_query(q), else: %{}
+    query = Map.merge(url_query, query)
+
+    query =
+      Map.merge(
+        %{
+          "X-Amz-Algorithm" => "AWS4-HMAC-SHA256",
+          "X-Amz-Credential" => "#{access_key_id}/#{scope}",
+          "X-Amz-Date" => amz_date,
+          "X-Amz-SignedHeaders" => signed_headers
+        },
+        query
+      )
+
+    query =
+      query
+      |> Enum.sort_by(fn {k, _} -> k end)
+      |> URI.encode_query()
+
+    canonical_request = [
+      method,
+      ?\n,
+      path,
+      ?\n,
+      query,
+      ?\n,
+      Enum.map(headers, fn {k, v} -> [k, ?:, v, ?\n] end),
+      ?\n,
+      signed_headers,
+      ?\n,
+      "UNSIGNED-PAYLOAD"
+    ]
+
+    string_to_sign = [
+      "AWS4-HMAC-SHA256\n",
+      amz_date,
+      ?\n,
+      scope,
+      ?\n,
+      hex_sha256(canonical_request)
+    ]
+
+    signing_key =
+      ["AWS4" | secret_access_key]
+      |> hmac_sha256(amz_short_date)
+      |> hmac_sha256(region)
+      |> hmac_sha256(service)
+      |> hmac_sha256("aws4_request")
+
+    signature = hex_hmac_sha256(signing_key, string_to_sign)
+    query = query <> "&X-Amz-Signature=" <> signature
+    url = Map.merge(url, %{query: query, path: path})
+    struct!(URI, url)
+  end
 
   # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html#sigv4-chunked-body-definition
   @doc false

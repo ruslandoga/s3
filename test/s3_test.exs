@@ -180,4 +180,129 @@ defmodule S3Test do
              "0;chunk-signature=b6c6ea8a5354eaf15b3cb7646744f4275b71ea724fed81ceb9323e279d449df9\r\n\r\n"
            ]
   end
+
+  # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-post-example.html
+  test "signed upload form" do
+    # policy
+    # { "expiration": "2015-12-30T12:00:00.000Z",
+    #   "conditions": [
+    #     {"bucket": "sigv4examplebucket"},
+    #     ["starts-with", "$key", "user/user1/"],
+    #     {"acl": "public-read"},
+    #     {"success_action_redirect": "http://sigv4examplebucket.s3.amazonaws.com/successful_upload.html"},
+    #     ["starts-with", "$Content-Type", "image/"],
+    #     {"x-amz-meta-uuid": "14365123651274"},
+    #     {"x-amz-server-side-encryption": "AES256"},
+    #     ["starts-with", "$x-amz-meta-tag", ""],
+
+    #     {"x-amz-credential": "AKIAIOSFODNN7EXAMPLE/20151229/us-east-1/s3/aws4_request"},
+    #     {"x-amz-algorithm": "AWS4-HMAC-SHA256"},
+    #     {"x-amz-date": "20151229T000000Z" }
+    #   ]
+    # }
+
+    # copied from the aws example
+    encoded_policy =
+      "eyAiZXhwaXJhdGlvbiI6ICIyMDE1LTEyLTMwVDEyOjAwOjAwLjAwMFoiLA0KICAiY29uZGl0aW9ucyI6IFsNCiAgICB7ImJ1Y2tldCI6ICJzaWd2NGV4YW1wbGVidWNrZXQifSwNCiAgICBbInN0YXJ0cy13aXRoIiwgIiRrZXkiLCAidXNlci91c2VyMS8iXSwNCiAgICB7ImFjbCI6ICJwdWJsaWMtcmVhZCJ9LA0KICAgIHsic3VjY2Vzc19hY3Rpb25fcmVkaXJlY3QiOiAiaHR0cDovL3NpZ3Y0ZXhhbXBsZWJ1Y2tldC5zMy5hbWF6b25hd3MuY29tL3N1Y2Nlc3NmdWxfdXBsb2FkLmh0bWwifSwNCiAgICBbInN0YXJ0cy13aXRoIiwgIiRDb250ZW50LVR5cGUiLCAiaW1hZ2UvIl0sDQogICAgeyJ4LWFtei1tZXRhLXV1aWQiOiAiMTQzNjUxMjM2NTEyNzQifSwNCiAgICB7IngtYW16LXNlcnZlci1zaWRlLWVuY3J5cHRpb24iOiAiQUVTMjU2In0sDQogICAgWyJzdGFydHMtd2l0aCIsICIkeC1hbXotbWV0YS10YWciLCAiIl0sDQoNCiAgICB7IngtYW16LWNyZWRlbnRpYWwiOiAiQUtJQUlPU0ZPRE5ON0VYQU1QTEUvMjAxNTEyMjkvdXMtZWFzdC0xL3MzL2F3czRfcmVxdWVzdCJ9LA0KICAgIHsieC1hbXotYWxnb3JpdGhtIjogIkFXUzQtSE1BQy1TSEEyNTYifSwNCiAgICB7IngtYW16LWRhdGUiOiAiMjAxNTEyMjlUMDAwMDAwWiIgfQ0KICBdDQp9"
+
+    options = [
+      region: "us-east-1",
+      secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      utc_now: ~U[2015-12-29 00:00:00Z],
+      body: encoded_policy
+    ]
+
+    assert S3.signature(options) ==
+             "8afdbf4008c03f22c2cd3cdb72e4afbb1f6a588f3255ac628749a66d7f09699e"
+  end
+
+  @tag :skip
+  test "signed upload form (jason)" do
+    access_key_id = "AKIAIOSFODNN7EXAMPLE"
+    secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    region = "us-east-1"
+    utc_now = DateTime.utc_now()
+
+    bucket = "sigv4examplebucket"
+    acl = "public-read"
+    success_action_redirect = "http://#{bucket}.s3.amazonaws.com/successful_upload.html"
+
+    amz_meta_uuid = "14365123651274"
+    amz_short_date = Calendar.strftime(utc_now, "%Y%m%d")
+    amz_date = Calendar.strftime(utc_now, "%Y%m%dT%H%M%SZ")
+    amz_credential = "#{access_key_id}/#{amz_short_date}/#{region}/s3/aws4_request"
+
+    checks = [
+      ["starts-with", "$key", "user/user1/"],
+      ["starts-with", "$Content-Type", "image/"],
+      ["starts-with", "$x-amz-meta-tag", ""]
+    ]
+
+    policy =
+      Jason.encode_to_iodata!(%{
+        "expiration" => DateTime.add(utc_now, :timer.hours(36), :millisecond),
+        "conditions" =>
+          [
+            %{"bucket" => bucket},
+            %{"acl" => acl},
+            %{"success_action_redirect" => success_action_redirect},
+            %{"x-amz-meta-uuid" => amz_meta_uuid},
+            %{"x-amz-server-side-encryption" => "AES256"},
+            %{"x-amz-credential" => amz_credential},
+            %{"x-amz-algorithm" => "AWS4-HMAC-SHA256"},
+            %{"x-amz-date" => amz_date}
+          ] ++ checks
+      })
+
+    encoded_policy = Base.encode16(policy, case: :lower)
+
+    _signature =
+      S3.signature(
+        secret_access_key: secret_access_key,
+        utc_now: utc_now,
+        body: encoded_policy,
+        region: region
+      )
+
+    # <form action="http://sigv4examplebucket.s3.amazonaws.com/" method="post" enctype="multipart/form-data">
+    #   Key to upload:
+    #   <input type="input"  name="key" value="user/user1/${filename}" /><br />
+    #   <input type="hidden" name="acl" value="public-read" />
+    #   <input type="hidden" name="success_action_redirect" value="http://sigv4examplebucket.s3.amazonaws.com/successful_upload.html" />
+    #   Content-Type:
+    #   <input type="input"  name="Content-Type" value="image/jpeg" /><br />
+    #   <input type="hidden" name="x-amz-meta-uuid" value="14365123651274" />
+    #   <input type="hidden" name="x-amz-server-side-encryption" value="AES256" />
+    #   <input type="text"   name="X-Amz-Credential" value="AKIAIOSFODNN7EXAMPLE/20151229/us-east-1/s3/aws4_request" />
+    #   <input type="text"   name="X-Amz-Algorithm" value="AWS4-HMAC-SHA256" />
+    #   <input type="text"   name="X-Amz-Date" value="20151229T000000Z" />
+
+    #   Tags for File:
+    #   <input type="input"  name="x-amz-meta-tag" value="" /><br />
+    #   <input type="hidden" name="Policy" value='<Base64-encoded policy string>' />
+    #   <input type="hidden" name="X-Amz-Signature" value="<signature-value>" />
+    #   File:
+    #   <input type="file"   name="file" /> <br />
+    #   <!-- The elements after this will be ignored -->
+    #   <input type="submit" name="submit" value="Upload to Amazon S3" />
+    # </form>
+  end
+
+  # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
+  test "signed url" do
+    assert uri =
+             S3.signed_url(
+               access_key_id: "AKIAIOSFODNN7EXAMPLE",
+               secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+               region: "us-east-1",
+               method: :get,
+               url: "https://examplebucket.s3.amazonaws.com",
+               path: "/test.txt",
+               query: %{"X-Amz-Expires" => 86400},
+               utc_now: ~U[2013-05-24 00:00:00Z]
+             )
+
+    assert URI.to_string(uri) ==
+             "https://examplebucket.s3.amazonaws.com/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404"
+  end
 end

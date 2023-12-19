@@ -22,6 +22,7 @@ defmodule S3.MixProject do
   defp deps do
     [
       {:finch, "~> 0.16.0", only: [:dev, :test]},
+      {:jason, "~> 1.4", only: [:dev, :test]},
       {:aws_signature, "~> 0.3.1", only: [:test, :bench]},
       {:benchee, "~> 1.2", only: :bench},
       {:sweet_xml, "~> 0.7.4", only: :bench},

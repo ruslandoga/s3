@@ -12,6 +12,7 @@ TODO: Wasabi, Backblaze B2, Cloudflare R2, DigitalOcean, and Scaleway.
 #### Example using [MinIO](https://github.com/minio/minio) and [Finch](https://github.com/sneako/finch)
 
 ```console
+// don't forget to `docker stop minio` once done
 $ docker run -d --rm -p 9000:9000 --name minio minio/minio server /data
 $ docker exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
 $ docker exec minio mc mb local/testbucket
@@ -51,6 +52,7 @@ end
 req = Finch.build(:put, uri, headers, body)
 200 = Finch.request!(req, MinIO.Finch).status
 ```
+
 ```elixir
 # HeadObject
 {uri, headers, body} = S3.build(config.(method: :head, path: "/testbucket/my-bytes"))
@@ -63,6 +65,7 @@ req = Finch.build(:head, uri, headers, body)
   # etc.
 } = Map.new(Finch.request!(req, MinIO.Finch).headers)
 ```
+
 ```elixir
 # stream GetObject
 {uri, headers, body} = S3.build(config.(method: :get, path: "/testbucket/my-bytes"))
@@ -80,6 +83,7 @@ Finch.stream(req, MinIO.Finch, _acc = [], stream)
 # bytes received: 408300
 # bytes received: 35996
 ```
+
 ```elixir
 # chunked PutObject
 # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
@@ -103,6 +107,7 @@ stream = Stream.take(stream, 10)
 req = Finch.build(:put, uri, headers, body)
 200 = Finch.request!(req, MinIO.Finch).status
 ```
+
 ```elixir
 # ListObjectsV2
 # https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
@@ -133,12 +138,42 @@ req = Finch.build(:get, uri, headers, body)
  }} = S3.xml(Finch.request!(req, MinIO.Finch).body)
 ```
 
-```console
-$ docker stop minio
+```elixir
+# Signed Upload Form
+# https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html
+# similar to https://gist.github.com/chrismccord/37862f1f8b1f5148644b75d20d1cb073
+
+# TODO what the api should be?
 ```
 
-TODO:
-- [Signed Upload Form](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html)
-- [Signed URL](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html)
-- [DeleteObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html)
-- [DeleteObjects](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html)
+```elixir
+# Signed URL
+# https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
+
+%URI{} = url = 
+  S3.signed_url(
+    access_key_id: "AKIAIOSFODNN7EXAMPLE",
+    secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    region: "us-east-1",
+    method: :get,
+    url: "https://examplebucket.s3.amazonaws.com",
+    path: "/test.txt",
+    query: %{"X-Amz-Expires" => 86400},
+    utc_now: ~U[2013-05-24 00:00:00Z]
+  )
+
+"""
+https://examplebucket.s3.amazonaws.com/test.txt?\
+X-Amz-Algorithm=AWS4-HMAC-SHA256&\
+X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&\
+X-Amz-Date=20130524T000000Z&\
+X-Amz-Expires=86400&\
+X-Amz-SignedHeaders=host&\
+X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404\
+""" = URI.to_string(url)
+```
+
+```elixir
+# DeleteObjects
+# https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
+```
