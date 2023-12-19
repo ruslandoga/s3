@@ -84,6 +84,47 @@ defmodule MinIOTest do
     assert response.body == ""
   end
 
+  test "chunked PutObject" do
+    key = unique_key("my-streamed-bytes")
+
+    # PutObject
+
+    ### 10 chunks of 100KB
+    stream = Stream.take(Stream.repeatedly(fn -> <<0::size(8 * 100_000)>> end), 10)
+
+    {uri, headers, body = {:stream, _signed_stream}} =
+      S3.build(
+        config(
+          method: :put,
+          path: "/testbucket/#{key}",
+          headers: [
+            {"content-type", "application/octet-stream"},
+            {"content-encoding", "aws-chunked"},
+            {"x-amz-decoded-content-length", "1000000"}
+          ],
+          body: {:stream, stream}
+        )
+      )
+
+    response = request!(:put, uri, headers, body)
+
+    assert response.status == 200
+    assert response.headers["etag"] == ~s["879f4bba57ed37c9ec5e5aedf9864698"]
+    assert response.body == ""
+
+    # HeadObject
+
+    {uri, headers, body} = S3.build(config(method: :head, path: "/testbucket/#{key}"))
+
+    response = request!(:head, uri, headers, body)
+
+    assert response.status == 200
+    assert response.headers["content-length"] == "1000000"
+    assert response.headers["content-type"] == "application/octet-stream"
+    assert response.headers["etag"] == ~s["879f4bba57ed37c9ec5e5aedf9864698"]
+    assert response.body == ""
+  end
+
   test "GetObject" do
     key = unique_key("my-bytes")
 
