@@ -142,7 +142,6 @@ req = Finch.build(:get, uri, headers, body)
 
 # DeleteObjects
 # https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
-
 objects =
   Enum.map(contents, fn {"Contents", contents} ->
     {"Object", [List.keyfind!(contents, "Key", 0)]}
@@ -153,7 +152,7 @@ content_md5 = Base.encode64(:crypto.hash(:md5, xml))
 
 {uri, headers, body} =
   S3.build(
-    config(
+    config.(
       method: :post,
       path: "/testbucket",
       query: %{"delete" => ""},
@@ -161,7 +160,6 @@ content_md5 = Base.encode64(:crypto.hash(:md5, xml))
       body: xml
     )
   )
-
 
 {:ok,
  {"DeleteResult",
