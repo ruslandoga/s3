@@ -18,76 +18,86 @@ $ iex
 ```
 
 ```elixir
-iex> Mix.install([:finch, {:s3, github: "ruslandoga/s3"}])
-iex> Finch.start_link(name: MinIO.Finch)
-iex> config = fn options -> 
- Keyword.merge(
+# Setup
+Mix.install([:finch, {:s3, github: "ruslandoga/s3"}])
+Finch.start_link(name: MinIO.Finch)
+
+config = fn options ->
+  Keyword.merge(
     [
       access_key_id: "minioadmin",
       secret_access_key: "minioadmin",
-      url: URI.parse("http://localhost:9000"),
+      base_url: "http://localhost:9000",
       region: "us-east-1"
     ],
     options
   )
 end
+```
 
+```elixir
 # PutObject
-iex> {uri, headers, body} = S3.build(
-  config.(
-    method: :put,
-    headers: [{"content-type", "application/octet-stream"}],
-    path: "/testbucket/my-bytes",
-    body: <<0::1000000-bytes>>
+{uri, headers, body} =
+  S3.build(
+    config.(
+      method: :put,
+      headers: [{"content-type", "application/octet-stream"}],
+      path: "/testbucket/my-bytes",
+      body: <<0::1_000_000-bytes>>
+    )
   )
-)
-iex> req = Finch.build(:put, uri, headers, body)
-iex> Finch.request!(req, MinIO.Finch).status
-200
 
+req = Finch.build(:put, uri, headers, body)
+200 = Finch.request!(req, MinIO.Finch).status
+```
+```elixir
 # HeadObject
-iex> {uri, headers, body} = S3.build(
-  config.(method: :head, path: "/testbucket/my-bytes")
-)
-iex> req = Finch.build(:head, uri, headers, body)
-iex> Map.new(Finch.request!(req, MinIO.Finch).headers)
+{uri, headers, body} = S3.build(config.(method: :head, path: "/testbucket/my-bytes"))
+req = Finch.build(:head, uri, headers, body)
+
 %{
   "content-length" => "1000000",
   "content-type" => "application/octet-stream",
   "etag" => "\"879f4bba57ed37c9ec5e5aedf9864698\""
   # etc.
-}
-
+} = Map.new(Finch.request!(req, MinIO.Finch).headers)
+```
+```elixir
 # stream GetObject
-iex> {uri, headers, body} = S3.build(
-  config.(method: :get, path: "/testbucket/my-bytes")
-)
-iex> req = Finch.build(:get, uri, headers, body)
-iex> stream = fn
-  {:data, data}, _ -> IO.inspect(byte_size(data), label: "bytes received")
-  _, _ -> :ok
+{uri, headers, body} = S3.build(config.(method: :get, path: "/testbucket/my-bytes"))
+req = Finch.build(:get, uri, headers, body)
+
+stream = fn packet, _acc ->
+  with {:data, data} <- packet do
+    IO.inspect(byte_size(data), label: "bytes received")
+  end
 end
-iex> Finch.stream(req, MinIO.Finch, _acc = [], stream)
+
+Finch.stream(req, MinIO.Finch, _acc = [], stream)
 # bytes received: 147404
 # bytes received: 408300
 # bytes received: 408300
 # bytes received: 35996
-
+```
+```elixir
 # chunked PutObject
 # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
-iex> stream = <<0::10000-bytes>> |> Stream.repeatedly() |> Stream.take(100)
-iex> {uri, headers, {:stream, stream}} = S3.build(
-  config.(
-    method: :put,
-    headers: [{"content-type", "application/octet-stream"}],
-    path: "/testbucket/my-bytestream",
-    body: {:stream, stream}
-  )
-)
-iex> req = Finch.build(:put, uri, headers, {:stream, stream})
-iex> Finch.request!(req, MinIO.Finch).status
-200
+stream = <<0::10000-bytes>> |> Stream.repeatedly() |> Stream.take(100)
 
+{uri, headers, {:stream, stream}} =
+  S3.build(
+    config.(
+      method: :put,
+      headers: [{"content-type", "application/octet-stream"}],
+      path: "/testbucket/my-bytestream",
+      body: {:stream, stream}
+    )
+  )
+
+req = Finch.build(:put, uri, headers, {:stream, stream})
+200 = Finch.request!(req, MinIO.Finch).status
+```
+```elixir
 # ListObjectsV2
 # https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
 iex> {uri, headers, body} = S3.build(
@@ -118,7 +128,7 @@ iex> xml
       # etc.
     ]
   }
-]
+] = S3.xml(Finch.request!(req, MinIO.Finch).body)
 ```
 
 ```console

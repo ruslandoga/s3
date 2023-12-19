@@ -57,7 +57,7 @@ defmodule S3 do
     method = String.upcase(to_string(method))
 
     query = encode_query(url.query, query)
-    path = path |> Path.split() |> Enum.map(&URI.encode/1) |> Path.join()
+    path = path |> Path.split() |> Enum.map(&:uri_string.quote/1) |> Path.join()
     path = Path.join(url.path || "/", path)
 
     amz_short_date = String.slice(amz_date, 0, 8)
