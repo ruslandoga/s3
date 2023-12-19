@@ -55,7 +55,7 @@ defmodule S3 do
 
     headers =
       Enum.map(headers, fn {k, v} -> {String.downcase(k), v} end)
-      |> put_header("host", host || url[:host] || raise("missing :host in the URL"))
+      |> put_header("host", host || url.host)
       |> put_header("x-amz-content-sha256", amz_content_sha256)
       |> put_header("x-amz-date", amz_date)
       |> Enum.sort_by(fn {k, _} -> k end)
@@ -128,10 +128,23 @@ defmodule S3 do
     headers = [{"authorization", authorization} | headers]
 
     body =
-      case body do
-        # TODO https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
-        {:stream, _stream} -> raise "sigv4-streaming not yet implemented"
-        _ -> body
+      with {:stream, stream} <- body do
+        string_to_sign_prefix = [
+          "AWS4-HMAC-SHA256-PAYLOAD",
+          ?\n,
+          amz_date,
+          ?\n,
+          scope,
+          ?\n
+        ]
+
+        acc = %{
+          prefix: IO.iodata_to_binary(string_to_sign_prefix),
+          key: signing_key,
+          signature: signature
+        }
+
+        {:stream, Stream.transform(stream, acc, &__MODULE__.streaming_chunk/2)}
       end
 
     url = Map.merge(url, %{query: query, path: path})
@@ -144,6 +157,39 @@ defmodule S3 do
   defp encode_query(nil, q), do: URI.encode_query(q)
   defp encode_query(q, nil), do: q
   defp encode_query(q1, q2), do: q1 <> "&" <> URI.encode_query(q2)
+
+  # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html#sigv4-chunked-body-definition
+  @doc false
+  @spec streaming_chunk(iodata, acc) :: {[iodata], acc}
+        when acc: %{prefix: binary, key: binary, signature: String.t()}
+  def streaming_chunk(chunk, acc) do
+    %{
+      prefix: string_to_sign_prefix,
+      key: signing_key,
+      signature: prev_signature
+    } = acc
+
+    string_to_sign = [
+      string_to_sign_prefix,
+      prev_signature,
+      # hex_sha256("") =
+      "\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n",
+      hex_sha256(chunk)
+    ]
+
+    signature = hex_hmac_sha256(signing_key, string_to_sign)
+
+    signed_chunk = [
+      chunk |> IO.iodata_length() |> Integer.to_string(16),
+      ";chunk-signature=",
+      signature,
+      "\r\n",
+      chunk,
+      "\r\n"
+    ]
+
+    {[signed_chunk], %{acc | signature: signature}}
+  end
 
   @compile inline: [put_header: 3]
   defp put_header(headers, key, value), do: [{key, value} | List.keydelete(headers, key, 1)]

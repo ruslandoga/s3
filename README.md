@@ -83,19 +83,24 @@ Finch.stream(req, MinIO.Finch, _acc = [], stream)
 ```elixir
 # chunked PutObject
 # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
-stream = <<0::10000-bytes>> |> Stream.repeatedly() |> Stream.take(100)
+stream = Stream.repeatedly(fn -> <<0::size(8 * 100_000)>> end)
+stream = Stream.take(stream, 10)
 
-{uri, headers, {:stream, stream}} =
+{uri, headers, body = {:stream, _signed_stream}} =
   S3.build(
     config.(
       method: :put,
-      headers: [{"content-type", "application/octet-stream"}],
+      headers: [
+        {"content-type", "application/octet-stream"},
+        {"content-encoding", "aws-chunked"},
+        {"x-amz-decoded-content-length", "1000000"}
+      ],
       path: "/testbucket/my-bytestream",
       body: {:stream, stream}
     )
   )
 
-req = Finch.build(:put, uri, headers, {:stream, stream})
+req = Finch.build(:put, uri, headers, body)
 200 = Finch.request!(req, MinIO.Finch).status
 ```
 ```elixir

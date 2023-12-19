@@ -124,4 +124,60 @@ defmodule S3Test do
     #            }
     #          }
   end
+
+  # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
+  test "sigv4 streaming" do
+    assert {%URI{} = uri, headers, {:stream, signed_stream}} =
+             S3.build(
+               access_key_id: "AKIAIOSFODNN7EXAMPLE",
+               secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+               url: "https://s3.amazonaws.com",
+               path: "/examplebucket/chunkObject.txt",
+               region: "us-east-1",
+               method: :put,
+               headers: [
+                 {"content-length", "66824"},
+                 {"content-encoding", "aws-chunked"},
+                 {"x-amz-storage-class", "REDUCED_REDUNDANCY"},
+                 {"x-amz-decoded-content-length", "66560"}
+               ],
+               utc_now: ~U[2013-05-24 00:00:00Z],
+               body:
+                 {:stream,
+                  Stream.map([65536, 1024, 0], fn size -> String.duplicate("a", size) end)}
+             )
+
+    assert uri.scheme == "https"
+    assert uri.host == "s3.amazonaws.com"
+    assert uri.path == "/examplebucket/chunkObject.txt"
+
+    expected_authorization =
+      """
+      AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,\
+      SignedHeaders=content-encoding;content-length;host;x-amz-content-sha256;x-amz-date;x-amz-decoded-content-length;x-amz-storage-class,\
+      Signature=4f232c4386841ef735655705268965c44a0e4690baa4adea153f7db9fa80a0a9\
+      """
+
+    assert headers == [
+             {"authorization", expected_authorization},
+             {"content-encoding", "aws-chunked"},
+             {"content-length", "66824"},
+             {"host", "s3.amazonaws.com"},
+             {"x-amz-content-sha256", "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"},
+             {"x-amz-date", "20130524T000000Z"},
+             {"x-amz-decoded-content-length", "66560"},
+             {"x-amz-storage-class", "REDUCED_REDUNDANCY"}
+           ]
+
+    signed_chunks = Enum.map(signed_stream, &IO.iodata_to_binary/1)
+    assert IO.iodata_length(signed_chunks) == 66824
+
+    assert signed_chunks == [
+             "10000;chunk-signature=ad80c730a21e5b8d04586a2213dd63b9a0e99e0e2307b0ade35a65485a288648\r\n" <>
+               String.duplicate("a", 65536) <> "\r\n",
+             "400;chunk-signature=0055627c9e194cb4542bae2aa5492e3c1575bbb81b612b7d234b86a503ef5497\r\n" <>
+               String.duplicate("a", 1024) <> "\r\n",
+             "0;chunk-signature=b6c6ea8a5354eaf15b3cb7646744f4275b71ea724fed81ceb9323e279d449df9\r\n\r\n"
+           ]
+  end
 end
