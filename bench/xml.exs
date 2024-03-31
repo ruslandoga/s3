@@ -2,6 +2,7 @@ Benchee.run(
   %{
     "S3.xml/1" => &S3.xml/1,
     "SweetXml.parse/1" => &SweetXml.parse/1,
+    "AWS.XML.decode!/1" => &AWS.XML.decode!/1,
     "Saxy.SimpleForm.parse_string/1" => &Saxy.SimpleForm.parse_string/1,
     "Meeseeks.parse/1" => &Meeseeks.parse/1
   },

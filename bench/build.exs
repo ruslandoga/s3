@@ -15,7 +15,7 @@ Benchee.run(
     "S3.build/1" => &S3.build/1
   },
   memory_time: 2,
-  profile_after: true,
+  # profile_after: true,
   inputs: %{
     "PutObject" =>
       config.(

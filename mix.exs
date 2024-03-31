@@ -29,12 +29,13 @@ defmodule S3.MixProject do
   defp deps do
     [
       {:finch, "~> 0.18.0", only: [:dev, :test]},
-      {:jason, "~> 1.4", only: [:dev, :test]},
-      {:aws_signature, "~> 0.3.1", only: [:test, :bench]},
+      {:jason, "~> 1.4", only: [:dev, :test, :bench]},
+      {:aws_signature, "~> 0.3.1", only: [:dev, :test, :bench]},
       {:benchee, "~> 1.2", only: :bench},
-      {:sweet_xml, "~> 0.7.4", only: [:test, :bench]},
-      {:saxy, "~> 1.5", only: [:test, :bench]},
-      {:meeseeks, "~> 0.17.0", only: [:test, :bench]},
+      {:sweet_xml, "~> 0.7.4", only: [:dev, :test, :bench]},
+      {:saxy, "~> 1.5", only: [:dev, :test, :bench]},
+      {:aws, "~> 0.14.1", only: [:dev, :test, :bench]},
+      {:meeseeks, "~> 0.17.0", only: [:dev, :test, :bench]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :docs}
     ]
