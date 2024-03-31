@@ -33,6 +33,7 @@ jobs:
             bench-${{ matrix.otp }}-${{ matrix.elixir }}-refs/heads/master-
 
       - run: mix deps.get --only $MIX_ENV
+      - run: mix compile
       - run: mkdir results
       - run: mix run bench/build.exs | tee results/build.txt
       - run: mix run bench/xml.exs | tee results/xml.txt
