@@ -1,13 +1,20 @@
 defmodule S3.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/ruslandoga/s3"
+  @version "0.1.0-rc.0"
+
   def project do
     [
       app: :s3,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.15",
-      start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      name: "S3",
+      description: "Minimal request builder for S3-compatible object storage API",
+      docs: docs(),
+      package: package(),
+      source_url: @source_url
     ]
   end
 
@@ -28,7 +35,26 @@ defmodule S3.MixProject do
       {:sweet_xml, "~> 0.7.4", only: :bench},
       {:saxy, "~> 1.5", only: :bench},
       {:meeseeks, "~> 0.17.0", only: :bench},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :docs}
+    ]
+  end
+
+  defp docs do
+    [
+      source_url: @source_url,
+      source_ref: "v#{@version}",
+      main: "readme",
+      extras: ["README.md"]
+      # extras: ["README.md", "CHANGELOG.md"],
+      # skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{"GitHub" => @source_url}
     ]
   end
 end
