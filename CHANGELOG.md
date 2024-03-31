@@ -1,5 +1,5 @@
 # Changelog
 
-## Unreleased (2024-03-31)
+## 0.1.0 (2024-03-31)
 
-- cleanup
+- cleanup, upadte deps, add some docs

@@ -2,7 +2,7 @@ defmodule S3.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/ruslandoga/s3"
-  @version "0.1.0-rc.0"
+  @version "0.1.0"
 
   def project do
     [
