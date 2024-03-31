@@ -15,7 +15,8 @@ defmodule S3 do
           | {:path, String.t()}
           | {:query, Enumerable.t()}
           | {:headers, headers}
-          | {:body, iodata | {:stream, Enumerable.t()} | :url}
+          # TODO | {:body, iodata | {:stream, Enumerable.t()}, :url} ?
+          | {:body, iodata | {:stream, Enumerable.t()}}
           | {:utc_now, DateTime.t()}
 
   @doc "Builds URI, headers, body triplet to be used with HTTP clients."
@@ -54,7 +55,7 @@ defmodule S3 do
 
     headers =
       Enum.map(headers, fn {k, v} -> {String.downcase(k), v} end)
-      |> put_header("host", host || url.host)
+      |> put_header("host", host || url[:authority] || url.host)
       |> put_header("x-amz-content-sha256", amz_content_sha256)
       |> put_header("x-amz-date", amz_date)
       |> Enum.sort_by(fn {k, _} -> k end)
@@ -208,7 +209,7 @@ defmodule S3 do
 
     headers =
       Enum.map(headers, fn {k, v} -> {String.downcase(k), v} end)
-      |> put_header("host", host || url.host)
+      |> put_header("host", host || url[:authority] || url.host)
       |> Enum.sort_by(fn {k, _} -> k end)
 
     path =
