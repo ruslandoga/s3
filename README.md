@@ -1,9 +1,4 @@
-Small and experimental Amazon S3-compatible object storage "client" in a single file.
-
-Inspired by
-- https://gist.github.com/chrismccord/37862f1f8b1f5148644b75d20d1cb073 (single file, easy)
-- https://github.com/aws-beam/aws-elixir (clients are structs, xmerl)
-- https://github.com/ex-aws/ex_aws_s3 (streaming uploads and downloads)
+Small and experimental Amazon S3-compatible object storage request builder.
 
 Verified to work with Amazon S3, MinIO.
 
@@ -21,7 +16,7 @@ $ iex
 
 ```elixir
 # Setup
-Mix.install([:finch, {:s3, github: "ruslandoga/s3"}])
+Mix.install([:finch, :s3])
 Finch.start_link(name: MinIO.Finch)
 
 config = fn options ->
@@ -175,7 +170,7 @@ content_md5 = Base.encode64(:crypto.hash(:md5, xml))
 # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-UsingHTTPPOST.html
 # similar to https://gist.github.com/chrismccord/37862f1f8b1f5148644b75d20d1cb073
 
-# TODO what the api should be?
+# TODO what the api should be? S3.form/1
 ```
 
 ```elixir
@@ -183,7 +178,7 @@ content_md5 = Base.encode64(:crypto.hash(:md5, xml))
 # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 
 %URI{} = url = 
-  S3.signed_url(
+  S3.url(
     access_key_id: "AKIAIOSFODNN7EXAMPLE",
     secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
     region: "us-east-1",

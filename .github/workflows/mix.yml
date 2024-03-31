@@ -1,4 +1,4 @@
-name: test
+name: mix
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [master]
 
 jobs:
-  mix:
+  test:
     runs-on: ubuntu-latest
 
     env:
@@ -14,8 +14,8 @@ jobs:
 
     strategy:
       matrix:
-        elixir: ["1.15"]
-        otp: ["26"]
+        elixir: ["1.15", "1.16"]
+        otp: ["25", "26"]
 
     steps:
       - uses: actions/checkout@v4
@@ -36,10 +36,9 @@ jobs:
             test-${{ matrix.otp }}-${{ matrix.elixir }}-refs/heads/master-
 
       - run: mix deps.get --only $MIX_ENV
-      - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
 
-      - run: docker run -d -p 9000:9000 minio/minio server /data      
+      - run: docker run -d -p 9000:9000 minio/minio server /data
       - run: aws --endpoint-url http://127.0.0.1:9000/ s3 mb s3://testbucket
         env:
           AWS_ACCESS_KEY_ID: minioadmin
@@ -52,3 +51,13 @@ jobs:
           MINIO_ACCESS_KEY: minioadmin
           MINIO_SECRET_KEY: minioadmin
           MINIO_ENDPOINT_URL: http://127.0.0.1:9000
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.16"
+          otp-version: 26
+      - run: mix format --check-formatted

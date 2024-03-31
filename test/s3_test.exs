@@ -1,5 +1,6 @@
 defmodule S3Test do
   use ExUnit.Case, async: true
+  doctest S3, import: true
 
   @config [
     access_key_id: "AKIAZZM67ULNV4CSXW4B",
@@ -319,7 +320,7 @@ defmodule S3Test do
   # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
   test "signed url" do
     assert uri =
-             S3.signed_url(
+             S3.sign(
                access_key_id: "AKIAIOSFODNN7EXAMPLE",
                secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
                region: "us-east-1",

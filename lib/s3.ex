@@ -18,9 +18,8 @@ defmodule S3 do
           | {:body, iodata | {:stream, Enumerable.t()} | :url}
           | {:utc_now, DateTime.t()}
 
-  @type options :: [option]
-
-  @spec build(options) :: {URI.t(), headers, body :: iodata | Enumerable.t()}
+  @doc "Builds URI, headers, body triplet to be used with HTTP clients."
+  @spec build([option]) :: {URI.t(), headers, body :: iodata | Enumerable.t()}
   def build(options) do
     access_key_id = Keyword.fetch!(options, :access_key_id)
     secret_access_key = Keyword.fetch!(options, :secret_access_key)
@@ -156,7 +155,8 @@ defmodule S3 do
     {struct!(URI, url), headers, body}
   end
 
-  @spec signature(options) :: String.t()
+  @doc "Calculates V4 signature"
+  @spec signature([option]) :: String.t()
   def signature(options) do
     secret_access_key = Keyword.fetch!(options, :secret_access_key)
     body = Keyword.fetch!(options, :body)
@@ -175,8 +175,9 @@ defmodule S3 do
     hex_hmac_sha256(signing_key, body)
   end
 
-  @spec signed_url(options) :: URI.t()
-  def signed_url(options) do
+  @doc "Returns a presigned URL"
+  @spec sign([option]) :: URI.t()
+  def sign(options) do
     access_key_id = Keyword.fetch!(options, :access_key_id)
     secret_access_key = Keyword.fetch!(options, :secret_access_key)
 
@@ -331,11 +332,51 @@ defmodule S3 do
 
   @type xml_element :: {String.t(), [xml_element() | String.t()]}
 
+  @doc """
+  Decodes XML binaries and encodes term to XML iodata.
+
+  Examples:
+
+      iex> xml("")
+      ** (ArgumentError) Can't detect character encoding due to lack of indata
+
+      iex> xml("<Hello></Hello>")
+      {:ok, {"Hello", []}}
+
+      iex> IO.iodata_to_binary(xml({"Hello", []}))
+      "<Hello></Hello>"
+
+      iex> xml(\"""
+      ...> <book>
+      ...>
+      ...> <title> Learning Amazon Web Services </title>
+      ...>
+      ...> <author> Mark Wilkins </author>
+      ...>
+      ...> </book>
+      ...> \""")
+      {:ok, {"book", [{"title", [" Learning Amazon Web Services "]}, {"author", [" Mark Wilkins "]}]}}
+
+      iex> IO.iodata_to_binary(xml({"book", [{"title", [" Learning Amazon Web Services "]}, {"author", [" Mark Wilkins "]}]}))
+      "<book><title> Learning Amazon Web Services </title><author> Mark Wilkins </author></book>"
+
+      iex> xml(\"""
+      ...> <?xml version="1.0" encoding="UTF-8"?>
+      ...> <俄语 լեզու="ռուսերեն">данные</俄语>
+      ...> \""")
+      {:ok, {"俄语", ["данные"]}}
+
+      iex> IO.iodata_to_binary(xml({"俄语", ["данные"]}))
+      "<俄语>данные</俄语>"
+
+  """
   @spec xml(binary) :: {:ok, xml_element} | {:error, any}
   def xml(xml) when is_binary(xml) do
     # TODO
     # See: https://elixirforum.com/t/utf-8-issue-with-erlang-xmerl-scan-function/1668/9
     # xml = :erlang.binary_to_list(xml)
+
+    xml = String.trim(xml)
 
     result =
       :xmerl_sax_parser.stream(xml,
@@ -345,7 +386,7 @@ defmodule S3 do
 
     case result do
       {:ok, xml, ""} -> {:ok, xml}
-      # TODO incomplete or extra -> error
+      {:fatal_error, _, reason, _, _} -> raise ArgumentError, List.to_string(reason)
       {:error, _reason} = e -> e
     end
   end

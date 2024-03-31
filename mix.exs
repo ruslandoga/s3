@@ -32,9 +32,9 @@ defmodule S3.MixProject do
       {:jason, "~> 1.4", only: [:dev, :test]},
       {:aws_signature, "~> 0.3.1", only: [:test, :bench]},
       {:benchee, "~> 1.2", only: :bench},
-      {:sweet_xml, "~> 0.7.4", only: :bench},
-      {:saxy, "~> 1.5", only: :bench},
-      {:meeseeks, "~> 0.17.0", only: :bench},
+      {:sweet_xml, "~> 0.7.4", only: [:test, :bench]},
+      {:saxy, "~> 1.5", only: [:test, :bench]},
+      {:meeseeks, "~> 0.17.0", only: [:test, :bench]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :docs}
     ]
@@ -45,9 +45,8 @@ defmodule S3.MixProject do
       source_url: @source_url,
       source_ref: "v#{@version}",
       main: "readme",
-      extras: ["README.md"]
-      # extras: ["README.md", "CHANGELOG.md"],
-      # skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
+      extras: ["README.md", "CHANGELOG.md"],
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"]
     ]
   end
 
