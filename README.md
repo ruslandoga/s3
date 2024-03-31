@@ -1,3 +1,8 @@
+# S3
+
+[![Hex Package](https://img.shields.io/hexpm/v/s3.svg)](https://hex.pm/packages/s3)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/s3)
+
 Small and experimental Amazon S3-compatible object storage request builder.
 
 Verified to work with Amazon S3, MinIO.
