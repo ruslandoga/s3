@@ -409,6 +409,14 @@ defmodule S3 do
     [xml_escape(binary) | xml_continue(rest)]
   end
 
+  defp xml_continue([atom | rest]) when is_atom(atom) do
+    [atom |> Atom.to_string() |> xml_escape() | xml_continue(rest)]
+  end
+
+  defp xml_continue([number | rest]) when is_number(number) do
+    [to_string(number) | xml_continue(rest)]
+  end
+
   defp xml_continue([] = empty), do: empty
 
   # TODO speed-up
