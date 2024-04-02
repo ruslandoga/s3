@@ -14,8 +14,11 @@ jobs:
 
     strategy:
       matrix:
-        elixir: ["1.15", "1.16"]
-        otp: ["25", "26"]
+        # TODO
+        # elixir: ["1.15", "1.16"]
+        # otp: ["25", "26"]
+        elixir: ["1.16"]
+        otp: ["26"]
 
     steps:
       - uses: actions/checkout@v4
@@ -45,12 +48,18 @@ jobs:
           AWS_SECRET_ACCESS_KEY: minioadmin
           AWS_EC2_METADATA_DISABLED: true
 
-      - run: mix test --include minio
+      - run: mix test
+      - run: mix test --only minio
         env:
           MINIO_REGION: us-east-1
           MINIO_ACCESS_KEY: minioadmin
           MINIO_SECRET_KEY: minioadmin
           MINIO_ENDPOINT_URL: http://127.0.0.1:9000
+      - run: mix test --only r2
+        env:
+          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
 
   format:
     runs-on: ubuntu-latest

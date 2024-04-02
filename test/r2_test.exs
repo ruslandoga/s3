@@ -1,12 +1,9 @@
-defmodule MinIOTest do
+defmodule R2Test do
   use ExUnit.Case, async: true
 
-  @moduletag :minio
+  @moduletag :r2
 
-  # uses https://min.io
-  # docker run -d --rm -p 9000:9000 -p 9001:9001 --name minio minio/minio server /data --console-address ":9001"
-  # docker exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
-  # docker exec minio mc mb local/testbucket
+  # uses https://developers.cloudflare.com/r2/api/s3/api/
 
   @finch __MODULE__.Finch
 
@@ -24,10 +21,10 @@ defmodule MinIOTest do
   defp config(extra) do
     Keyword.merge(
       [
-        access_key_id: System.get_env("MINIO_ACCESS_KEY", "minioadmin"),
-        secret_access_key: System.get_env("MINIO_SECRET_KEY", "minioadmin"),
-        region: System.get_env("MINIO_REGION", "us-east-1"),
-        url: URI.parse(System.get_env("MINIO_ENDPOINT_URL", "http://localhost:9000"))
+        access_key_id: System.fetch_env!("R2_ACCESS_KEY"),
+        secret_access_key: System.fetch_env!("R2_SECRET_ACCESS_KEY"),
+        region: System.get_env("R2_REGION", "auto"),
+        url: URI.parse(System.fetch_env!("R2_ENDPOINT_URL"))
       ],
       extra
     )
@@ -38,15 +35,11 @@ defmodule MinIOTest do
   end
 
   test "HeadObject object that doesn't exist" do
-    {uri, headers, body} =
-      S3.build(config(method: :head, path: "/testbucket/ / eh? 🤔"))
-
-    assert uri.path == "/testbucket/%20/%20eh%3F%20%F0%9F%A4%94"
+    {uri, headers, body} = S3.build(config(method: :head, path: "/ / eh? 🤔"))
+    assert String.ends_with?(uri.path, "/%20/%20eh%3F%20%F0%9F%A4%94")
 
     response = request!(:head, uri, headers, body)
-
     assert response.status == 404
-    assert response.headers["x-minio-error-desc"] == ~s["The specified key does not exist."]
     assert response.body == ""
   end
 
@@ -59,7 +52,7 @@ defmodule MinIOTest do
       S3.build(
         config(
           method: :put,
-          path: "/testbucket/#{key}",
+          path: "/#{key}",
           headers: [{"content-type", "application/octet-stream"}],
           body: <<0::size(8 * 1_000_000)>>
         )
@@ -73,7 +66,7 @@ defmodule MinIOTest do
 
     # HeadObject
 
-    {uri, headers, body} = S3.build(config(method: :head, path: "/testbucket/#{key}"))
+    {uri, headers, body} = S3.build(config(method: :head, path: "/#{key}"))
 
     response = request!(:head, uri, headers, body)
 
@@ -84,6 +77,8 @@ defmodule MinIOTest do
     assert response.body == ""
   end
 
+  # not supported, see https://developers.cloudflare.com/r2/api/s3/api/
+  @tag :skip
   test "chunked PutObject" do
     key = unique_key("my-streamed-bytes")
 
@@ -114,7 +109,7 @@ defmodule MinIOTest do
 
     # HeadObject
 
-    {uri, headers, body} = S3.build(config(method: :head, path: "/testbucket/#{key}"))
+    {uri, headers, body} = S3.build(config(method: :head, path: "/#{key}"))
 
     response = request!(:head, uri, headers, body)
 
@@ -134,7 +129,7 @@ defmodule MinIOTest do
       S3.build(
         config(
           method: :put,
-          path: "/testbucket/#{key}",
+          path: "/#{key}",
           headers: [{"content-type", "application/octet-stream"}],
           body: <<0::size(8 * 1_000_000)>>
         )
@@ -148,7 +143,7 @@ defmodule MinIOTest do
 
     # GetObject
 
-    {uri, headers, body} = S3.build(config(method: :get, path: "/testbucket/#{key}"))
+    {uri, headers, body} = S3.build(config(method: :get, path: "/#{key}"))
 
     response = request!(:get, uri, headers, body)
 
@@ -161,7 +156,7 @@ defmodule MinIOTest do
 
     # streaming GetObject
 
-    {uri, headers, body} = S3.build(config(method: :get, path: "/testbucket/#{key}"))
+    {uri, headers, body} = S3.build(config(method: :get, path: "/#{key}"))
     stream = fn packet, acc -> [packet | acc] end
     req = Finch.build(:get, uri, headers, body)
     assert {:ok, packets} = Finch.stream(req, @finch, _acc = [], stream)
@@ -179,27 +174,24 @@ defmodule MinIOTest do
       S3.build(
         config(
           method: :get,
-          path: "/testbucket",
+          path: "/",
           query: %{"list-type" => 2}
         )
       )
 
     response = request!(:get, uri, headers, body)
-
     assert response.status == 200
 
-    assert {:ok,
-            {
-              "ListBucketResult",
-              [
-                {"Name", ["testbucket"]},
-                {"Prefix", []},
-                {"KeyCount", [key_count]},
-                {"MaxKeys", ["1000"]},
-                {"IsTruncated", ["false"]}
-                | contents
-              ]
-            }} = S3.xml(response.body)
+    assert {:ok, {"ListBucketResult", list_bucket_result}} = S3.xml(response.body)
+
+    assert {[contents],
+            [
+              {"Name", [_bucket]},
+              {"IsTruncated", ["false"]},
+              {"MaxKeys", ["1000"]},
+              {"KeyCount", [key_count]}
+            ]} =
+             :proplists.split(list_bucket_result, ["Contents"])
 
     key_count = String.to_integer(key_count)
     assert key_count == length(contents)
@@ -217,7 +209,7 @@ defmodule MinIOTest do
         S3.build(
           config(
             method: :post,
-            path: "/testbucket",
+            path: "/",
             query: %{"delete" => ""},
             headers: [{"content-md5", content_md5}],
             body: xml
