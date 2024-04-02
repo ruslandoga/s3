@@ -5,5 +5,5 @@ help:
 
 minio: ## Start a transient container with a recent version of minio
 	docker run -d --rm -p 9000:9000 -p 9001:9001 --name minio minio/minio server /data --address ":9000" --console-address ":9001"
-	while ! docker exec minio mc alias set local http://localhost:6000 minioadmin minioadmin; do sleep 1; done
+	while ! docker exec minio mc alias set local http://localhost:9000 minioadmin minioadmin; do sleep 1; done
 	docker exec minio mc mb local/testbucket
