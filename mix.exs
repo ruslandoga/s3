@@ -34,7 +34,7 @@ defmodule S3.MixProject do
       {:benchee, "~> 1.2", only: :bench},
       {:sweet_xml, "~> 0.7.4", only: [:dev, :test, :bench]},
       {:saxy, "~> 1.5", only: [:dev, :test, :bench]},
-      {:aws, "~> 0.14.1", only: [:dev, :test, :bench]},
+      {:aws, "~> 1.0.1", only: [:dev, :test, :bench]},
       {:meeseeks, "~> 0.17.0", only: [:dev, :test, :bench]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :docs}
