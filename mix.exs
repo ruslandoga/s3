@@ -28,7 +28,7 @@ defmodule S3.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:finch, "~> 0.18.0", only: [:dev, :test]},
+      {:finch, "~> 0.19.0", only: [:dev, :test]},
       {:jason, "~> 1.4", only: [:dev, :test, :bench]},
       {:aws_signature, "~> 0.3.1", only: [:dev, :test, :bench]},
       {:benchee, "~> 1.2", only: :bench},
