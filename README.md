@@ -5,9 +5,7 @@
 
 Small and experimental Amazon S3-compatible object storage request builder.
 
-Verified to work with Amazon S3, MinIO, Cloudflare R2.
-
-TODO: Backblaze B2.
+Verified to work with Amazon S3, MinIO, Cloudflare R2, and Backblaze B2.
 
 #### Example using [MinIO](https://github.com/minio/minio) and [Finch](https://github.com/sneako/finch)
 
