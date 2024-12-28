@@ -8,7 +8,7 @@ defmodule S3.MixProject do
     [
       app: :s3,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.16",
       deps: deps(),
       name: "S3",
       description: "Minimal request builder for S3-compatible object storage API",
