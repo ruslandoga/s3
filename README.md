@@ -112,40 +112,28 @@ req = Finch.build(:put, uri, headers, body)
 {uri, headers, body} = S3.build(config.(method: :get, path: "/testbucket", query: %{"list-type" => 2}))
 req = Finch.build(:get, uri, headers, body)
 
-{:ok,
- {
-   "ListBucketResult",
-   [
-     {"Name", ["testbucket"]},
-     {"Prefix", []},
-     {"KeyCount", ["2"]},
-     {"MaxKeys", ["1000"]},
-     {"IsTruncated", ["false"]}
-     | contents = [
-         {
-           "Contents",
-           [
-             {"Key", ["my-bytes"]},
-             {"LastModified", ["2023-12-14T08:54:40.085Z"]},
-             {"ETag", ["\"879f4bba57ed37c9ec5e5aedf9864698\""]},
-             {"Size", ["1000000"]},
-             {"StorageClass", ["STANDARD"]}
-           ]
-         }
-         | _etc
-       ]
-   ]
- }} =
-  S3.xml(Finch.request!(req, MinIO.Finch).body)
+%{
+  "ListBucketResult" => %{
+    "Name" => "testbucket",
+    "KeyCount" => "2",
+    "MaxKeys" => "1000",
+    "IsTruncated" => "false",
+    "Contents" => [
+      %{
+        "Key" => "my-bytes",
+        "LastModified" => "2023-12-14T08:54:40.085Z",
+        "ETag" => "\"879f4bba57ed37c9ec5e5aedf9864698\"",
+        "Size" => "1000000",
+        "StorageClass" => "STANDARD"
+      }
+      | _etc
+    ] = objects
+  }
+} = S3.xml(Finch.request!(req, MinIO.Finch).body)
 
 # DeleteObjects
 # https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObjects.html
-objects =
-  Enum.map(contents, fn {"Contents", contents} ->
-    {"Object", [List.keyfind!(contents, "Key", 0)]}
-  end)
-
-xml = S3.xml({"Delete", objects})
+xml = S3.xml(%{"Delete" => %{"Object" => Enum.map(objects, & &Map.fetch!(&1, "Key"))}})
 content_md5 = Base.encode64(:crypto.hash(:md5, xml))
 
 {uri, headers, body} =
@@ -159,13 +147,14 @@ content_md5 = Base.encode64(:crypto.hash(:md5, xml))
     )
   )
 
-{:ok,
- {"DeleteResult",
-  [
-    {"Deleted", [{"Key", ["my-bytes"]}]}
-  ]
-  | _etc}} =
-  S3.xml(Finch.request!(req, MinIO.Finch).body)
+%{
+  "DeleteResult" => %{
+    "Deleted" => [
+      %{"Key" => "my-bytes"}
+      | _etc
+    ]
+  }
+} = S3.xml(Finch.request!(req, MinIO.Finch).body)
 ```
 
 ```elixir
