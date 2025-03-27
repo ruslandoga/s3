@@ -1,11 +1,7 @@
 defmodule S3.XMLTest do
   use ExUnit.Case, async: true
 
-  @text "__text"
-
   test "decodes lists correctly by merging values in a list" do
-    _expected = %{"person" => %{"name" => "foo", "addresses" => %{"address" => ["1", "2", "œ"]}}}
-
     input = """
     <person>
       <name>foo</name>
@@ -18,17 +14,17 @@ defmodule S3.XMLTest do
     """
 
     assert S3.xml(input) ==
-             {:ok,
-              {"person",
-               [
-                 {"name", ["foo"]},
-                 {"addresses", [{"address", ["1"]}, {"address", ["2"]}, {"address", ["œ"]}]}
-               ]}}
+             %{
+               "person" => %{
+                 "name" => "foo",
+                 "addresses" => %{
+                   "address" => ["1", "2", "œ"]
+                 }
+               }
+             }
   end
 
-  test "decodes multiple text elments mixed with other elements correctly" do
-    _expected = %{"person" => %{"name" => "foo", @text => "random"}}
-
+  test "ignores text elments mixed with other elements" do
     input = """
     <person>
       <name>foo</name>
@@ -36,9 +32,7 @@ defmodule S3.XMLTest do
     </person>
     """
 
-    assert S3.xml(input) == {:ok, {"person", [{"name", ["foo"]}, "\n  random\n"]}}
-
-    _expected = %{"person" => %{"name" => "foo", "age" => "42", @text => "random\n  \n  text"}}
+    assert S3.xml(input) == %{"person" => %{"name" => "foo"}}
 
     input = """
     <person>
@@ -49,14 +43,12 @@ defmodule S3.XMLTest do
     </person>
     """
 
-    assert S3.xml(input) ==
-             {:ok,
-              {"person", [{"name", ["foo"]}, "\n  random\n  ", {"age", ["42"]}, "\n  text\n"]}}
+    assert S3.xml(input) == %{"person" => %{"name" => "foo", "age" => "42"}}
   end
 
-  test "encodes all possible types" do
-    _input = %{
-      {"TagWithAttrs", %{xmlns: "some-ns"}} => %{
+  test "can encode" do
+    input = %{
+      "TagWithAttrs" => %{
         "TagWithOutAttrs" => %{
           "TestTypes" => [
             %{"BoolVal" => true},
@@ -67,18 +59,6 @@ defmodule S3.XMLTest do
         }
       }
     }
-
-    input =
-      {"TagWithAttrs",
-       [
-         {"TagWithOutAttrs",
-          [
-            {"TestTypes", [{"BoolVal", [true]}]},
-            {"TestTypes", [{"IntVal", [1]}]},
-            {"TestTypes", [{"FloatVal", [1.0]}]},
-            {"TestTypes", [{"BinValue", ["hello"]}]}
-          ]}
-       ]}
 
     assert IO.iodata_to_binary(S3.xml(input)) == """
            <TagWithAttrs>\
