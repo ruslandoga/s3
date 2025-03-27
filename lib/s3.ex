@@ -1,8 +1,6 @@
 defmodule S3 do
   @moduledoc "Small S3-compatible API request builder and stuff"
 
-  # TODO hide access_key_id and secret_access_key from inspect / logs
-
   @type headers :: [{String.t(), String.t()}]
 
   @type option ::
@@ -15,7 +13,6 @@ defmodule S3 do
           | {:path, String.t()}
           | {:query, Enumerable.t()}
           | {:headers, headers}
-          # TODO | {:body, iodata | {:stream, Enumerable.t()}, :url} ?
           | {:body, iodata | {:stream, Enumerable.t()}}
           | {:utc_now, DateTime.t()}
 
