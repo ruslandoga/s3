@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 (2025-03-27)
 
 - ensure HTTP port is set in the returned `URI.t()` from `build/1`
 
