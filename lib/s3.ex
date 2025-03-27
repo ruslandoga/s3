@@ -32,6 +32,13 @@ defmodule S3 do
         %{} = parsed -> parsed
       end
 
+    url =
+      case url do
+        %{port: port} when is_integer(port) -> url
+        %{scheme: "http"} -> Map.put(url, :port, 80)
+        %{scheme: "https"} -> Map.put(url, :port, 443)
+      end
+
     host = Keyword.get(options, :host)
     path = Keyword.get(options, :path) || "/"
     query = Keyword.get(options, :query) || %{}
