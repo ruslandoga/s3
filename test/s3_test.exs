@@ -70,33 +70,32 @@ defmodule S3Test do
     </ListBucketResult>\
     """
 
-    assert {:ok, decoded} = S3.xml(xml)
+    decoded = S3.xml(xml)
 
-    assert decoded ==
-             {"ListBucketResult",
-              [
-                {"Name", ["testbucket"]},
-                {"Prefix", []},
-                {"KeyCount", ["2"]},
-                {"MaxKeys", ["1000"]},
-                {"IsTruncated", ["false"]},
-                {"Contents",
-                 [
-                   {"Key", ["my-bytes-1702544080-292"]},
-                   {"LastModified", ["2023-12-14T08:54:40.085Z"]},
-                   {"ETag", ["\"879f4bba57ed37c9ec5e5aedf9864698\""]},
-                   {"Size", ["1000000"]},
-                   {"StorageClass", ["STANDARD"]}
-                 ]},
-                {"Contents",
-                 [
-                   {"Key", ["my-bytes-1702544080-66"]},
-                   {"LastModified", ["2023-12-14T08:54:40.042Z"]},
-                   {"ETag", ["\"879f4bba57ed37c9ec5e5aedf9864698\""]},
-                   {"Size", ["1000000"]},
-                   {"StorageClass", ["STANDARD"]}
-                 ]}
-              ]}
+    assert decoded == %{
+             "ListBucketResult" => %{
+               "Name" => "testbucket",
+               "KeyCount" => "2",
+               "MaxKeys" => "1000",
+               "IsTruncated" => "false",
+               "Contents" => [
+                 %{
+                   "Key" => "my-bytes-1702544080-292",
+                   "LastModified" => "2023-12-14T08:54:40.085Z",
+                   "ETag" => "\"879f4bba57ed37c9ec5e5aedf9864698\"",
+                   "Size" => "1000000",
+                   "StorageClass" => "STANDARD"
+                 },
+                 %{
+                   "Key" => "my-bytes-1702544080-66",
+                   "LastModified" => "2023-12-14T08:54:40.042Z",
+                   "ETag" => "\"879f4bba57ed37c9ec5e5aedf9864698\"",
+                   "Size" => "1000000",
+                   "StorageClass" => "STANDARD"
+                 }
+               ]
+             }
+           }
 
     encoded = IO.iodata_to_binary(S3.xml(decoded))
 
@@ -124,34 +123,7 @@ defmodule S3Test do
            </ListBucketResult>\
            """
 
-    assert {:ok, decoded} == S3.xml(encoded)
-
-    # TODO
-    # assert xml ==
-    #          %{
-    #            "ListBucketResult" => %{
-    #              "Name" => "testbucket",
-    #              "KeyCount" => "2",
-    #              "MaxKeys" => "1000",
-    #              "IsTruncated" => "false",
-    #              "Contents" => [
-    #                %{
-    #                  "Key" => "my-bytes-1702544080-292",
-    #                  "LastModified" => "2023-12-14T08:54:40.085Z",
-    #                  "ETag" => "\"879f4bba57ed37c9ec5e5aedf9864698\"",
-    #                  "Size" => "1000000",
-    #                  "StorageClass" => "STANDARD"
-    #                },
-    #                %{
-    #                  "Key" => "my-bytes-1702544080-66",
-    #                  "LastModified" => "2023-12-14T08:54:40.042Z",
-    #                  "ETag" => "\"879f4bba57ed37c9ec5e5aedf9864698\"",
-    #                  "Size" => "1000000",
-    #                  "StorageClass" => "STANDARD"
-    #                }
-    #              ]
-    #            }
-    #          }
+    assert decoded == S3.xml(encoded)
   end
 
   # https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html

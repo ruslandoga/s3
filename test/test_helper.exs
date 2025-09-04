@@ -1,1 +1,1 @@
-ExUnit.start(exclude: [:minio, :r2])
+ExUnit.start(exclude: [:minio, :r2, :b2])
