@@ -1,8 +1,6 @@
 defmodule S3 do
   @moduledoc "Small S3-compatible API request builder and stuff"
 
-  # TODO hide access_key_id and secret_access_key from inspect / logs
-
   @type headers :: [{String.t(), String.t()}]
 
   @type option ::
@@ -15,7 +13,6 @@ defmodule S3 do
           | {:path, String.t()}
           | {:query, Enumerable.t()}
           | {:headers, headers}
-          # TODO | {:body, iodata | {:stream, Enumerable.t()}, :url} ?
           | {:body, iodata | {:stream, Enumerable.t()}}
           | {:utc_now, DateTime.t()}
 
@@ -338,8 +335,6 @@ defmodule S3 do
   @compile inline: [hex_hmac_sha256: 2]
   defp hex_hmac_sha256(secret, value), do: hex(hmac_sha256(secret, value))
 
-  @type xml_element :: {String.t(), [xml_element() | String.t()]}
-
   @doc """
   Decodes XML binaries and encodes term to XML iodata.
 
@@ -348,10 +343,11 @@ defmodule S3 do
       iex> xml("")
       ** (ArgumentError) Can't detect character encoding due to lack of indata
 
+      # TODO
       iex> xml("<Hello></Hello>")
-      {:ok, {"Hello", []}}
+      %{"Hello" => %{}}
 
-      iex> IO.iodata_to_binary(xml({"Hello", []}))
+      iex> IO.iodata_to_binary(xml(%{"Hello" => []}))
       "<Hello></Hello>"
 
       iex> xml(\"""
@@ -363,22 +359,22 @@ defmodule S3 do
       ...>
       ...> </book>
       ...> \""")
-      {:ok, {"book", [{"title", [" Learning Amazon Web Services "]}, {"author", [" Mark Wilkins "]}]}}
+      %{"book" => %{"title" => " Learning Amazon Web Services ", "author" => " Mark Wilkins "}}
 
-      iex> IO.iodata_to_binary(xml({"book", [{"title", [" Learning Amazon Web Services "]}, {"author", [" Mark Wilkins "]}]}))
+      iex> IO.iodata_to_binary(xml(%{"book" => %{"title" => " Learning Amazon Web Services ", "author" => " Mark Wilkins "}}))
       "<book><title> Learning Amazon Web Services </title><author> Mark Wilkins </author></book>"
 
       iex> xml(\"""
       ...> <?xml version="1.0" encoding="UTF-8"?>
       ...> <俄语 լեզու="ռուսերեն">данные</俄语>
       ...> \""")
-      {:ok, {"俄语", ["данные"]}}
+      %{"俄语" => "данные"}
 
-      iex> IO.iodata_to_binary(xml({"俄语", ["данные"]}))
+      iex> IO.iodata_to_binary(xml(%{"俄语" => "данные"}))
       "<俄语>данные</俄语>"
 
   """
-  @spec xml(binary) :: {:ok, xml_element} | {:error, any}
+  @spec xml(binary) :: map
   def xml(xml) when is_binary(xml) do
     # TODO
     # See: https://elixirforum.com/t/utf-8-issue-with-erlang-xmerl-scan-function/1668/9
@@ -393,16 +389,24 @@ defmodule S3 do
       )
 
     case result do
-      {:ok, xml, ""} -> {:ok, xml}
-      {:fatal_error, _, reason, _, _} -> raise ArgumentError, List.to_string(reason)
-      {:error, _reason} = e -> e
+      {:ok, xml, ""} -> xml
+      {:fatal_error, _, _, _, _} = error -> raise ArgumentError, inspect(error)
     end
   end
 
-  # TODO
-  @spec xml(xml_element) :: iodata
-  def xml({name, content}) do
-    [?<, name, ?>, xml_continue(content), "</", name, ?>]
+  @spec xml(map) :: iodata
+  def xml(xml) when is_map(xml) do
+    [root] = Map.to_list(xml)
+    xml_continue(root)
+  end
+
+  defp xml_continue(xml) when is_map(xml) do
+    [root] = Map.to_list(xml)
+    xml_continue(root)
+  end
+
+  defp xml_continue({name, content}) when is_list(content) do
+    Enum.map(content, fn content -> xml_continue({name, content}) end)
   end
 
   defp xml_continue({name, content}) do
@@ -413,19 +417,17 @@ defmodule S3 do
     [?<, name, ?>, xml_continue(content), "</", name, ?> | xml_continue(rest)]
   end
 
-  defp xml_continue([binary | rest]) when is_binary(binary) do
-    [xml_escape(binary) | xml_continue(rest)]
+  defp xml_continue(binary) when is_binary(binary) do
+    xml_escape(binary)
   end
 
-  defp xml_continue([atom | rest]) when is_atom(atom) do
-    [atom |> Atom.to_string() |> xml_escape() | xml_continue(rest)]
+  defp xml_continue(atom) when is_atom(atom) do
+    atom |> Atom.to_string() |> xml_escape()
   end
 
-  defp xml_continue([number | rest]) when is_number(number) do
-    [to_string(number) | xml_continue(rest)]
+  defp xml_continue(number) when is_number(number) do
+    to_string(number)
   end
-
-  defp xml_continue([] = empty), do: empty
 
   # TODO speed-up
   defp xml_escape(binary) do
@@ -449,7 +451,7 @@ defmodule S3 do
 
   def xml_event_fun({:endElement, _, tag_name, _}, _location, stack) do
     [{^tag_name, content} | stack] = stack
-    element = {:unicode.characters_to_binary(tag_name), :lists.reverse(content)}
+    element = {:unicode.characters_to_binary(tag_name), content}
 
     # TODO content = [binary] -> binary
     # TODO content = [] -> drop
@@ -461,6 +463,37 @@ defmodule S3 do
   end
 
   def xml_event_fun(:startDocument, _location, :undefined), do: _stack = []
-  def xml_event_fun(:endDocument, _location, stack), do: stack
+
+  def xml_event_fun(:endDocument, _location, stack) do
+    xml_event_fun_post_process(stack, %{})
+  end
+
   def xml_event_fun(_event, _location, stack), do: stack
+
+  defp xml_event_fun_post_process({tag_name, children}, acc) do
+    Map.put(acc, tag_name, xml_event_fun_post_process(children, %{}))
+  end
+
+  defp xml_event_fun_post_process([el], acc), do: xml_event_fun_post_process(el, acc)
+
+  defp xml_event_fun_post_process([_ | _] = children, acc) do
+    Enum.reduce(children, acc, fn el, acc ->
+      case el do
+        {tag_name, content} ->
+          content = xml_event_fun_post_process(content, %{})
+          Map.update(acc, tag_name, content, fn prev -> [content | List.wrap(prev)] end)
+
+        content when is_binary(content) ->
+          acc
+      end
+    end)
+  end
+
+  defp xml_event_fun_post_process([], acc), do: acc
+  defp xml_event_fun_post_process(el, _acc) when is_binary(el), do: el
+  defp xml_event_fun_post_process(el, _acc) when is_integer(el), do: el
+
+  defp xml_event_fun_post_process(el, _acc) do
+    raise ArgumentError, "invalid XML element: #{inspect(el)}"
+  end
 end
