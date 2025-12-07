@@ -395,7 +395,6 @@ defmodule S3 do
     case result do
       {:ok, xml, ""} -> {:ok, xml}
       {:fatal_error, _, reason, _, _} -> raise ArgumentError, List.to_string(reason)
-      {:error, _reason} = e -> e
     end
   end
 

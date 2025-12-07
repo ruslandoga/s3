@@ -10,11 +10,17 @@ defmodule S3.MixProject do
       version: @version,
       elixir: "~> 1.16",
       deps: deps(),
-      name: "S3",
-      description: "Minimal request builder for S3-compatible object storage API",
-      docs: docs(),
+      # dialyzer
+      dialyzer: [
+        plt_local_path: "plts",
+        plt_core_path: "plts"
+      ],
+      # hex
       package: package(),
-      source_url: @source_url
+      description: "Minimal request builder for S3-compatible object storage API",
+      # docs
+      name: "S3",
+      docs: docs()
     ]
   end
 
@@ -28,14 +34,14 @@ defmodule S3.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:finch, "~> 0.19.0", only: [:dev, :test]},
+      {:finch, "~> 0.20.0", only: [:dev, :test]},
       {:jason, "~> 1.4", only: [:dev, :test, :bench]},
-      {:aws_signature, "~> 0.3.1", only: [:dev, :test, :bench]},
+      {:aws_signature, "~> 0.4.2", only: [:dev, :test, :bench]},
       {:benchee, "~> 1.2", only: :bench},
       {:sweet_xml, "~> 0.7.4", only: [:dev, :test, :bench]},
       {:saxy, "~> 1.5", only: [:dev, :test, :bench]},
       {:aws, "~> 1.0.1", only: [:dev, :test, :bench]},
-      {:meeseeks, "~> 0.17.0", only: [:dev, :test, :bench]},
+      {:meeseeks, "~> 0.18.0", only: [:dev, :test, :bench]},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :docs}
     ]
