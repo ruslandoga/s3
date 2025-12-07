@@ -13,7 +13,8 @@ defmodule S3.MixProject do
       # dialyzer
       dialyzer: [
         plt_local_path: "plts",
-        plt_core_path: "plts"
+        plt_core_path: "plts",
+        plt_add_apps: [:xmerl]
       ],
       # hex
       package: package(),
